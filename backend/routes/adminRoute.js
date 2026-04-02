@@ -26,6 +26,8 @@ router.post("/admin/post_attendance",userAuth,admin.post_attendance);
 router.post("/admin/post_accept_or_resolve",userAuth,admin.post_acceptorresolve);    
 
 
+router.get("/admin/meeting_alloted/:complaintId", userAuth, admin.getMeetingAlloted);
+
 
 router.get("/admin/get_complaints_summary",userAuth,admin.get_complaints_summary);
 module.exports = router

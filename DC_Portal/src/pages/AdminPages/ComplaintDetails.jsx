@@ -11,6 +11,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import moment from 'moment';
+import axios from 'axios';
 import { API_URL } from '../../utils/env';
 
 
@@ -39,7 +40,7 @@ const ComplaintDetails = () => {
 
 
   useEffect(() => {
-    if (!complaint?.id) return;
+    if (!complaint?.code) return;
 
     const fetchMeeting = async () => {
       setLoading(true);
@@ -58,7 +59,7 @@ const ComplaintDetails = () => {
       }
     };
     fetchMeeting();
-  }, [complaint.code]);
+  }, [complaint?.code]);
 
   const formatName = (name) => {
     return name ? name.charAt(0).toUpperCase() + name.slice(1).toLowerCase() : '';

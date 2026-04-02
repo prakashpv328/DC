@@ -717,11 +717,25 @@ exports.get_complaints_summary = (req, res, next) => {
 exports.getMeetingAlloted = (req, res, next) => {
   const { complaintId } = req.params;
 
+  if (!complaintId || String(complaintId).trim() === "") {
+    return next(createError.BadRequest("complaintId is required"));
+  }
+
   const sql = `
-    SELECT *
-    FROM meeting_alloted
+    SELECT 
+      m.meeting_id,
+      m.complaint_id,
+      m.admin_id,
+      m.venue,
+      m.date_time,
+      m.info,
+      m.attendance,
+      m.faculty_id,
+      m.student_id
+    FROM meetings m
     WHERE complaint_id = ?
-`;
+    ORDER BY m.date_time DESC
+  `;
 
   db.query(sql, [complaintId], (err, results) => {
     if (err) {
@@ -729,10 +743,7 @@ exports.getMeetingAlloted = (req, res, next) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    if (results.length === 0) {
-      return res.status(404).json({ message: 'No meetings found for this complaint_id' });
-    }
-
+    // Frontend expects an array and handles empty state itself.
     res.status(200).json(results);
   });
 };

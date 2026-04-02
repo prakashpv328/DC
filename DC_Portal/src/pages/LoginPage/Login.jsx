@@ -145,6 +145,7 @@ const Login = ({ navigation }) => {
         await AsyncStorage.setItem('user_name', user_name);
         await AsyncStorage.setItem('role_id', String(role_id));
       
+        
         if (role_id == 1) {
           navigation. navigate('StudentLayout');
         } else if (role_id == 2) {

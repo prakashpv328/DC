@@ -22,7 +22,7 @@ exports.get_complaints = (req, res, next) => {
       LEFT JOIN users u
         ON fl.student_id = u.user_id
       WHERE fl.faculty_id = ?
-        AND fl.date_time BETWEEN NOW() - INTERVAL 6 HOUR AND NOW() ORDER BY date_time DESC
+        AND fl.date_time BETWEEN NOW() - INTERVAL 12 HOUR AND NOW() ORDER BY date_time DESC
     `;
 
     db.query(sql, [id], (err, result) => {
@@ -53,7 +53,7 @@ exports.get_complaints_history = (req,res,next) => {
       LEFT JOIN users u
         ON fl.student_id = u.user_id
       WHERE fl.faculty_id = ? 
-      and date_time < now() - interval 6 hour ORDER BY date_time DESC`;
+      and date_time < now() - interval 12 hour ORDER BY date_time DESC`;
       db.query(sql,[faculty_id],(err,result) => {
         console.log("hai");
         if(err)return next(err);

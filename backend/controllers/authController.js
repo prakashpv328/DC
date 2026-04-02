@@ -3,10 +3,11 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const createError = require("http-errors");
 const cookieParser = require("cookie-parser");
-
 exports.login = (req, res, next) => {
+  console.log("api called")
     try{
         const {emailId, password} = req.body;
+        console.log("email",emailId,password)
         if(!emailId.trim() || !password.trim()) {
          return next(createError.BadRequest("EmailId or Password is missing!"));
         }
@@ -40,6 +41,7 @@ exports.login = (req, res, next) => {
     
     }
     catch(error){
+      console.log(error)
         return res.send(error);
     }
     
@@ -65,7 +67,7 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 exports.googleSignIn = async (req, res) => {
   try {
     const { idToken } = req.body;
-    // console.log("Google ID Token:", idToken);
+    // console.log("Goo gle ID Token:", idToken);
 
     // Validate input
     if (!idToken) {

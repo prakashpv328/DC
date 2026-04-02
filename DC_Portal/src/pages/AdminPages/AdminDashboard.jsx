@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   Modal,
   FlatList,
@@ -26,8 +25,17 @@ const AdminDashboard = () => {
   const navigation = useNavigation();
   const [allStudentsCounts, setAllStudentsCounts] = useState(null);
   const [specificStudentData, setSpecificStudentData] = useState(null);
+  
+  // ✅ NEW: Faculty states
+  const [allFacultyCounts, setAllFacultyCounts] = useState(null);
+  const [specificFacultyData, setSpecificFacultyData] = useState(null);
+  
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  
+  // ✅ NEW:  Faculty search loading
+  const [facultySearchLoading, setFacultySearchLoading] = useState(false);
+  
   const [adminId, setAdminId] = useState('');
   const [adminName, setAdminName] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -38,13 +46,19 @@ const AdminDashboard = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [studentsLoading, setStudentsLoading] = useState(false);
   
-  // Search states for modal
+  // ✅ NEW: Faculty dropdown states
+  const [faculty, setFaculty] = useState([]);
+  const [selectedFaculty, setSelectedFaculty] = useState(null);
+  const [facultyModalVisible, setFacultyModalVisible] = useState(false);
+  const [facultyLoading, setFacultyLoading] = useState(false);
+  
+  // Search states for modals
   const [searchText, setSearchText] = useState('');
   const [filteredStudents, setFilteredStudents] = useState([]);
-
-  // Header search states
-  const [headerSearchVisible, setHeaderSearchVisible] = useState(false);
-  const [headerSearchText, setHeaderSearchText] = useState('');
+  
+  // ✅ NEW:  Faculty search states
+  const [facultySearchText, setFacultySearchText] = useState('');
+  const [filteredFaculty, setFilteredFaculty] = useState([]);
 
   // Animation value
   const [scaleAnim] = useState(new Animated.Value(1));
@@ -70,6 +84,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchAllStudentsCounts();
     fetchStudentsList();
+    // ✅ NEW:  Fetch faculty data
+    fetchAllFacultyCounts();
+    fetchFacultyList();
   }, []);
 
   useFocusEffect(
@@ -77,12 +94,16 @@ const AdminDashboard = () => {
       if (adminId) {
         fetchAllStudentsCounts();
         fetchStudentsList();
+        // ✅ NEW: Refresh faculty data
+        fetchAllFacultyCounts();
+        fetchFacultyList();
       }
     }, [adminId])
   );
 
+  // Student search filter
   useEffect(() => {
-    if (!searchText. trim()) {
+    if (! searchText. trim()) {
       setFilteredStudents(students);
     } else {
       const filtered = students.filter(student => 
@@ -93,24 +114,47 @@ const AdminDashboard = () => {
     }
   }, [searchText, students]);
 
-
+  // ✅ NEW: Faculty search filter
+  useEffect(() => {
+    if (!facultySearchText. trim()) {
+      setFilteredFaculty(faculty);
+    } else {
+      const filtered = faculty.filter(f => 
+        f.name. toLowerCase().includes(facultySearchText.toLowerCase())
+      );
+      setFilteredFaculty(filtered);
+    }
+  }, [facultySearchText, faculty]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchAllStudentsCounts(), fetchStudentsList()]);
+    await Promise.all([
+      fetchAllStudentsCounts(), 
+      fetchStudentsList(),
+      fetchAllFacultyCounts(),
+      fetchFacultyList()
+    ]);
     setRefreshing(false);
   };
 
+  // ==================== STUDENT FUNCTIONS ====================
+  
   const fetchAllStudentsCounts = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/admin/getAllStudentsCounts`);
+      const response = await fetch(`${API_URL}/api/admin/getAllStudentsCounts`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
       const data = await response.json();
 
       if (data.success) {
         setAllStudentsCounts(data);
       } else {
-        Alert.alert('Error', 'Failed to fetch total counts');
+        Alert.alert('Error', 'Failed to fetch student counts');
       }
     } catch (error) {
       console.error('Error:', error);
@@ -128,7 +172,7 @@ const AdminDashboard = () => {
 
       if (data.success) {
         setStudents(data.data);
-        setFilteredStudents(data.data);
+        setFilteredStudents(data. data);
       } else {
         Alert.alert('Error', 'Failed to fetch students list');
       }
@@ -148,20 +192,17 @@ const AdminDashboard = () => {
 
     setSearchLoading(true);
     try {
-      const encodedName = encodeURIComponent(selectedStudent.name);
-      const encodedRegNum = encodeURIComponent(selectedStudent.reg_num);
-      
       const response = await fetch(
-        `${API_URL}/api/admin/getStudentProfile/${encodedName}/${encodedRegNum}`,
+        `${API_URL}/api/admin/getStudentProfile/${selectedStudent. user_id}`,
         {
           method: 'GET',
-          headers:  {
-            'Content-Type':  'application/json',
+          headers: {
+            'Content-Type': 'application/json',
           }
         }
       );
       
-      const data = await response. json();
+      const data = await response.json();
 
       if (data.success) {
         setSpecificStudentData(data);
@@ -194,7 +235,6 @@ const AdminDashboard = () => {
   const selectStudent = (student) => {
     setSelectedStudent(student);
     closeModal();
-    // Animate button press
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.95,
@@ -212,6 +252,118 @@ const AdminDashboard = () => {
   const clearSearch = () => {
     setSearchText('');
   };
+
+  // ==================== FACULTY FUNCTIONS ====================
+  
+  const fetchAllFacultyCounts = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/getAllFacultyCounts`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setAllFacultyCounts(data);
+      }
+    } catch (error) {
+      console.error('Error fetching faculty counts:', error);
+    }
+  };
+
+  const fetchFacultyList = async () => {
+    setFacultyLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/admin/getfaculty`);
+      const data = await response.json();
+
+      if (data.success) {
+        setFaculty(data.data);
+        setFilteredFaculty(data.data);
+      } else {
+        Alert.alert('Error', 'Failed to fetch faculty list');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'Network error while fetching faculty.');
+    } finally {
+      setFacultyLoading(false);
+    }
+  };
+
+  const fetchSpecificFaculty = async () => {
+    if (!selectedFaculty) {
+      Alert.alert('Error', 'Please select a faculty member');
+      return;
+    }
+
+    setFacultySearchLoading(true);
+    try {
+      const response = await fetch(
+        `${API_URL}/api/admin/getFacultyProfile/${selectedFaculty.user_id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+      
+      const data = await response.json();
+
+      if (data.success) {
+        setSpecificFacultyData(data);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to fetch faculty profile');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'Network error.  Please try again.');
+    } finally {
+      setFacultySearchLoading(false);
+    }
+  };
+
+  const resetFacultySearch = () => {
+    setSelectedFaculty(null);
+    setSpecificFacultyData(null);
+  };
+
+  const openFacultyModal = () => {
+    setFacultySearchText('');
+    setFacultyModalVisible(true);
+  };
+
+  const closeFacultyModal = () => {
+    setFacultySearchText('');
+    setFacultyModalVisible(false);
+  };
+
+  const selectFaculty = (facultyMember) => {
+    setSelectedFaculty(facultyMember);
+    closeFacultyModal();
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const clearFacultySearch = () => {
+    setFacultySearchText('');
+  };
+
+  // ==================== SHARED FUNCTIONS ====================
 
   const calculateTotalComplaints = (counts) => {
     return Number(counts.accepted_count || 0) + 
@@ -239,61 +391,90 @@ const AdminDashboard = () => {
     </View>
   );
 
-  const renderCountsGrid = (counts) => {
-    const totalComplaints = calculateTotalComplaints(counts);
-    
-    return (
-      <View style={styles.countsGrid}>
-        <View style={styles.countsRow}>
-          <CountCard
-            count={counts.accepted_count || 0}
-            label="Accepted"
-            icon="checkmark-circle"
-            gradientColors={['#10b981', '#059669']}
-          />
-          <CountCard
-            count={counts.rejected_count || 0}
-            label="Rejected"
-            icon="close-circle"
-            gradientColors={['#ef4444', '#dc2626']}
-          />
-        </View>
-        <View style={styles.countsRow}>
-          <CountCard
-            count={counts.pending_count || 0}
-            label="Pending"
-            icon="time"
-            gradientColors={['#f59e0b', '#d97706']}
-          />
-          <CountCard
-            count={counts.resolved_count || 0}
-            label="Resolved"
-            icon="checkmark-done-circle"
-            gradientColors={['#8b5cf6', '#7c3aed']}
-          />
-        </View>
-        <View style={styles.countsRow}>
-          <CountCard
-            count={totalComplaints}
-            label="Total Complaints"
-            icon="stats-chart"
-            gradientColors={['#6366f1', '#4f46e5']}
-          />
-        </View>
+ const renderCountsGrid = (counts, userInfo, userType) => {  // ✅ Add userInfo and userType params
+  const totalComplaints = calculateTotalComplaints(counts);
+  
+  return (
+    <View style={styles.countsGrid}>
+      <View style={styles.countsRow}>
+        <CountCard
+          count={counts.accepted_count || 0}
+          label="Accepted"
+          icon="checkmark-circle"
+          gradientColors={['#10b981', '#059669']}
+        />
+        <CountCard
+          count={counts.rejected_count || 0}
+          label="Rejected"
+          icon="close-circle"
+          gradientColors={['#ef4444', '#dc2626']}
+        />
       </View>
-    );
-  };
+      <View style={styles.countsRow}>
+        <CountCard
+          count={counts.pending_count || 0}
+          label="Pending"
+          icon="time"
+          gradientColors={['#f59e0b', '#d97706']}
+        />
+        <CountCard
+          count={counts.resolved_count || 0}
+          label="Resolved"
+          icon="checkmark-done-circle"
+          gradientColors={['#8b5cf6', '#7c3aed']}
+        />
+      </View>
+      <View style={styles.countsRow}>
+        {/* ✅ UPDATED: Make Total Complaints clickable */}
+        <TouchableOpacity 
+          style={styles.countCardWrapper}
+          onPress={() => {
+            if (userInfo && userType) {
+              navigation.navigate('UserComplaintHistory', {
+                userId: userInfo.user_id || userInfo.student_id || userInfo.faculty_id,
+                userType:  userType,
+                userName: userInfo.name || userInfo.student_name || userInfo. faculty_name
+              });
+            }
+          }}
+          activeOpacity={userInfo && userType ? 0.7 : 1}
+          disabled={!userInfo || !userType}
+        >
+          <LinearGradient
+            colors={['#6366f1', '#4f46e5']}
+            style={styles.countCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y:  1 }}
+          >
+            <View style={styles.countCardIcon}>
+              <Ionicons name="stats-chart" size={28} color="#fff" />
+            </View>
+            <View style={styles.countCardContent}>
+              <Text style={styles.countNumber}>{totalComplaints}</Text>
+              <Text style={styles.countLabel}>Total Complaints</Text>
+            </View>
+            {userInfo && userType && (
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" style={{ marginLeft: 8 }} />
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+  // ==================== RENDER FUNCTIONS ====================
 
   const renderStudentItem = ({ item }) => {
     const highlightText = (text, searchText) => {
-      if (! searchText) return text;
+      if (!searchText) return text;
       
       const parts = text.split(new RegExp(`(${searchText})`, 'gi'));
       return (
         <Text>
           {parts.map((part, index) => 
             part.toLowerCase() === searchText.toLowerCase() ? (
-              <Text key={index} style={styles. highlightedText}>{part}</Text>
+              <Text key={index} style={styles.highlightedText}>{part}</Text>
             ) : (
               <Text key={index}>{part}</Text>
             )
@@ -329,13 +510,57 @@ const AdminDashboard = () => {
     );
   };
 
+  // ✅ NEW: Render faculty item
+  const renderFacultyItem = ({ item }) => {
+    const highlightText = (text, searchText) => {
+      if (!searchText) return text;
+      
+      const parts = text. split(new RegExp(`(${searchText})`, 'gi'));
+      return (
+        <Text>
+          {parts.map((part, index) => 
+            part.toLowerCase() === searchText.toLowerCase() ? (
+              <Text key={index} style={styles. highlightedText}>{part}</Text>
+            ) : (
+              <Text key={index}>{part}</Text>
+            )
+          )}
+        </Text>
+      );
+    };
+
+    return (
+      <TouchableOpacity
+        style={styles.studentItem}
+        onPress={() => selectFaculty(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.studentAvatarContainer}>
+          <View style={styles.studentAvatar}>
+            <Ionicons name="person" size={20} color="#6366f1" />
+          </View>
+        </View>
+        <View style={styles.studentInfo}>
+          <Text style={styles.studentName}>
+            {highlightText(item.name, facultySearchText)}
+          </Text>
+          <View style={styles.studentRegContainer}>
+            <Ionicons name="id-card-outline" size={14} color="#6c757d" />
+            <Text style={styles.studentRegNum}>
+              ID: {item.user_id}
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#fe2752ff" />
-
       {/* Modern Header with Gradient */}
       <LinearGradient
-        colors={['#6366f1', '#4f46e5']}
+        colors={['#6366f1', '#dd7288ff']}
         style={styles.headerGradient}
       >
         <View style={styles.headerContainer}>
@@ -350,23 +575,6 @@ const AdminDashboard = () => {
         </View>
       </LinearGradient>
 
-      {/* Header Search Input */}
-      {headerSearchVisible && (
-        <View style={styles.headerSearchContainer}>
-          <View style={styles.headerSearchWrapper}>
-            <Ionicons name="search-outline" size={20} color="#6c757d" />
-            <TextInput
-              style={styles. headerSearchInput}
-              placeholder="Search students or complaints..."
-              placeholderTextColor="#9ca3af"
-              value={headerSearchText}
-              onChangeText={setHeaderSearchText}
-              autoFocus={true}
-            />
-          </View>
-        </View>
-      )}
-
       <ScrollView 
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
@@ -379,11 +587,13 @@ const AdminDashboard = () => {
           />
         }
       >
-        {/* Total Counts Section */}
+        {/* ==================== STUDENT SECTION ==================== */}
+        
+        {/* Total Student Counts */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="bar-chart" size={24} color="#6366f1" />
-            <Text style={styles.sectionTitle}>Overview Statistics</Text>
+            <Ionicons name="school" size={24} color="#6366f1" />
+            <Text style={styles.sectionTitle}>Student Overview</Text>
           </View>
           
           {loading ? (
@@ -391,8 +601,8 @@ const AdminDashboard = () => {
               <ActivityIndicator size="large" color="#6366f1" />
               <Text style={styles.loadingText}>Loading statistics...</Text>
             </View>
-          ) : allStudentsCounts ? (
-            renderCountsGrid(allStudentsCounts. counts)
+          ) : allStudentsCounts ?  (
+            renderCountsGrid(allStudentsCounts. counts, null, null)
           ) : (
             <TouchableOpacity style={styles.retryButton} onPress={fetchAllStudentsCounts}>
               <Ionicons name="refresh" size={20} color="#fff" />
@@ -401,14 +611,13 @@ const AdminDashboard = () => {
           )}
         </View>
 
-        {/* Search Specific Student Section */}
+        {/* Search Specific Student */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="person" size={24} color="#6366f1" />
+            <Ionicons name="person-circle-outline" size={24} color="#6366f1" />
             <Text style={styles.sectionTitle}>Student Profile</Text>
           </View>
           
-          {/* Modern Dropdown Button */}
           <TouchableOpacity 
             style={styles.modernDropdownButton} 
             onPress={openModal}
@@ -445,7 +654,6 @@ const AdminDashboard = () => {
             </View>
           </TouchableOpacity>
 
-          {/* Search Button */}
           <TouchableOpacity 
             style={[
               styles.modernSearchButton,
@@ -473,7 +681,9 @@ const AdminDashboard = () => {
                   <Ionicons name="person" size={40} color="#6366f1" />
                 </View>
                 <View style={styles.profileHeaderInfo}>
-                  <Text style={styles.profileName}>{selectedStudent?. name}</Text>
+                  <Text style={styles.profileName}>
+                    {specificStudentData.student_name}
+                  </Text>
                   <View style={styles.profileIdContainer}>
                     <Ionicons name="id-card" size={16} color="#6c757d" />
                     <Text style={styles.profileId}>
@@ -483,7 +693,7 @@ const AdminDashboard = () => {
                   <View style={styles.profileRegContainer}>
                     <Ionicons name="document-text" size={16} color="#6c757d" />
                     <Text style={styles. profileReg}>
-                      {selectedStudent?.reg_num}
+                      {specificStudentData.student_reg_num}
                     </Text>
                   </View>
                 </View>
@@ -492,13 +702,20 @@ const AdminDashboard = () => {
               {specificStudentData.message && (
                 <View style={styles.messageCard}>
                   <Ionicons name="information-circle" size={20} color="#6366f1" />
-                  <Text style={styles.messageText}>
+                  <Text style={styles. messageText}>
                     {specificStudentData.message}
                   </Text>
                 </View>
               )}
 
-              {renderCountsGrid(specificStudentData. counts)}
+              {renderCountsGrid(
+                specificStudentData.counts, 
+                { 
+                  user_id: specificStudentData. student_id, 
+                  name: specificStudentData.student_name 
+                }, 
+                'student'
+              )}
 
               <TouchableOpacity 
                 style={styles.resetButton} 
@@ -511,9 +728,125 @@ const AdminDashboard = () => {
             </View>
           )}
         </View>
+
+        {/* ==================== FACULTY SECTION ==================== */}
+
+        {/* Search Specific Faculty */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="person-circle-outline" size={24} color="#8b5cf6" />
+            <Text style={[styles. sectionTitle, { color: '#8b5cf6' }]}>Faculty Profile</Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.modernDropdownButton, { borderColor: '#e9d5ff' }]} 
+            onPress={openFacultyModal}
+            activeOpacity={0.8}
+          >
+            <View style={styles.dropdownContent}>
+              <View style={[styles.dropdownIconContainer, { backgroundColor: '#f3e8ff' }]}>
+                <Ionicons 
+                  name={selectedFaculty ? "person" : "person-add-outline"} 
+                  size={22} 
+                  color="#8b5cf6" 
+                />
+              </View>
+              <View style={styles.dropdownTextContainer}>
+                <Text style={styles.dropdownLabel}>
+                  {selectedFaculty ? 'Selected Faculty' : 'Select Faculty'}
+                </Text>
+                <Text style={[
+                  styles.dropdownValue, 
+                  !selectedFaculty && styles.placeholderValue
+                ]}>
+                  {selectedFaculty 
+                    ? selectedFaculty.name
+                    : 'Tap to choose a faculty'
+                  }
+                </Text>
+                {selectedFaculty && (
+                  <Text style={styles.dropdownRegNum}>
+                    ID: {selectedFaculty.user_id}
+                  </Text>
+                )}
+              </View>
+              <Ionicons name="chevron-down" size={20} color="#8b5cf6" />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[
+              styles.modernSearchButton,
+              { backgroundColor: '#8b5cf6', shadowColor: '#8b5cf6' },
+              (! selectedFaculty || facultySearchLoading) && styles.disabledButton
+            ]} 
+            onPress={fetchSpecificFaculty}
+            disabled={!selectedFaculty || facultySearchLoading}
+            activeOpacity={0.8}
+          >
+            {facultySearchLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="search" size={20} color="#fff" />
+                <Text style={styles.modernButtonText}>Search Profile</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Faculty Profile Results */}
+          {specificFacultyData && (
+            <View style={styles.profileContainer}>
+              <View style={styles. profileHeaderCard}>
+                <View style={[styles.profileAvatarLarge, { backgroundColor: '#f3e8ff' }]}>
+                  <Ionicons name="person" size={40} color="#8b5cf6" />
+                </View>
+                <View style={styles.profileHeaderInfo}>
+                  <Text style={styles.profileName}>
+                    {specificFacultyData.faculty_name}
+                  </Text>
+                  <View style={styles.profileIdContainer}>
+                    <Ionicons name="id-card" size={16} color="#6c757d" />
+                    <Text style={styles.profileId}>
+                      ID: {specificFacultyData.faculty_id}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              
+              {specificFacultyData.message && (
+                <View style={[styles.messageCard, { backgroundColor: '#f3e8ff' }]}>
+                  <Ionicons name="information-circle" size={20} color="#8b5cf6" />
+                  <Text style={[styles.messageText, { color: '#7c3aed' }]}>
+                    {specificFacultyData.message}
+                  </Text>
+                </View>
+              )}
+
+              {renderCountsGrid(
+                specificFacultyData.counts, 
+                { 
+                  user_id: specificFacultyData.faculty_id, 
+                  name: specificFacultyData.faculty_name 
+                }, 
+                'faculty'
+              )}
+
+              <TouchableOpacity 
+                style={styles. resetButton} 
+                onPress={resetFacultySearch}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                <Text style={styles. resetButtonText}>Clear Search</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </ScrollView>
 
-      {/* Modern Modal */}
+      {/* ==================== STUDENT MODAL ==================== */}
+      
       <Modal
         animationType="slide"
         transparent={true}
@@ -521,27 +854,25 @@ const AdminDashboard = () => {
         onRequestClose={closeModal}
       >
         <View style={styles.modalContainer}>
-          <View style={styles. modalContent}>
-            {/* Modal Header */}
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleContainer}>
                 <Ionicons name="people" size={24} color="#6366f1" />
                 <Text style={styles.modalTitle}>Select Student</Text>
               </View>
               <TouchableOpacity 
-                style={styles. closeButton}
+                style={styles.closeButton}
                 onPress={closeModal}
               >
                 <Ionicons name="close" size={24} color="#6c757d" />
               </TouchableOpacity>
             </View>
             
-            {/* Modern Search Input */}
             <View style={styles.searchContainer}>
               <View style={styles.searchInputWrapper}>
                 <Ionicons name="search" size={20} color="#6c757d" />
                 <TextInput
-                  style={styles. searchInput}
+                  style={styles.searchInput}
                   placeholder="Search by name or registration..."
                   placeholderTextColor="#9ca3af"
                   value={searchText}
@@ -558,9 +889,8 @@ const AdminDashboard = () => {
               </View>
             </View>
 
-            {/* Results Info */}
             {searchText.length > 0 && (
-              <View style={styles.resultsInfo}>
+              <View style={styles. resultsInfo}>
                 <Ionicons name="funnel" size={16} color="#6366f1" />
                 <Text style={styles.resultsText}>
                   {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' :  ''} found
@@ -577,7 +907,7 @@ const AdminDashboard = () => {
               <FlatList
                 data={filteredStudents}
                 renderItem={renderStudentItem}
-                keyExtractor={(item, index) => `${item.name}-${item.reg_num}-${index}`}
+                keyExtractor={(item) => `${item.user_id}`}
                 style={styles.studentsList}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={() => (
@@ -587,7 +917,89 @@ const AdminDashboard = () => {
                       {searchText ?  'No students found' : 'No students available'}
                     </Text>
                     <Text style={styles.emptySubText}>
-                      {searchText ? 'Try adjusting your search' : 'Please contact support'}
+                      {searchText ?  'Try adjusting your search' : 'Please contact support'}
+                    </Text>
+                  </View>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================== FACULTY MODAL ==================== */}
+      
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={facultyModalVisible}
+        onRequestClose={closeFacultyModal}
+      >
+        <View style={styles. modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleContainer}>
+                <Ionicons name="people" size={24} color="#8b5cf6" />
+                <Text style={[styles.modalTitle, { color: '#8b5cf6' }]}>Select Faculty</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={closeFacultyModal}
+              >
+                <Ionicons name="close" size={24} color="#6c757d" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.searchContainer}>
+              <View style={styles.searchInputWrapper}>
+                <Ionicons name="search" size={20} color="#6c757d" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by name..."
+                  placeholderTextColor="#9ca3af"
+                  value={facultySearchText}
+                  onChangeText={setFacultySearchText}
+                />
+                {facultySearchText.length > 0 && (
+                  <TouchableOpacity 
+                    style={styles. clearIconButton}
+                    onPress={clearFacultySearch}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {facultySearchText.length > 0 && (
+              <View style={styles.resultsInfo}>
+                <Ionicons name="funnel" size={16} color="#8b5cf6" />
+                <Text style={styles.resultsText}>
+                  {filteredFaculty.length} faculty member{filteredFaculty.length !== 1 ? 's' : ''} found
+                </Text>
+              </View>
+            )}
+            
+            {facultyLoading ? (
+              <View style={styles.modalLoadingContainer}>
+                <ActivityIndicator size="large" color="#8b5cf6" />
+                <Text style={styles.loadingText}>Loading faculty...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredFaculty}
+                renderItem={renderFacultyItem}
+                keyExtractor={(item) => `${item.user_id}`}
+                style={styles.studentsList}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={() => (
+                  <View style={styles. emptyContainer}>
+                    <Ionicons name="search-outline" size={64} color="#d1d5db" />
+                    <Text style={styles.emptyText}>
+                      {facultySearchText ? 'No faculty found' : 'No faculty available'}
+                    </Text>
+                    <Text style={styles.emptySubText}>
+                      {facultySearchText ? 'Try adjusting your search' : 'Please contact support'}
                     </Text>
                   </View>
                 )}
@@ -600,20 +1012,19 @@ const AdminDashboard = () => {
   );
 };
 
+// ✅ Keep all existing styles (same as before)
 const styles = StyleSheet.create({
   container: {
-    flex:  1,
+    flex: 1,
     backgroundColor: '#f3f4f6',
   },
   headerGradient: {
-    marginTop: -(StatusBar.currentHeight || 0), // Pull up
-    paddingTop: StatusBar.currentHeight || 0,   
+    paddingTop: 14,
   },
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: StatusBar.currentHeight || 0, // ✅ No extra padding
     paddingBottom: 16,
   },
   profileImage: {
@@ -638,28 +1049,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
- 
-  headerSearchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerSearchWrapper: {
-    flexDirection: 'row',
-    alignItems:  'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  headerSearchInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#111827',
-  },
   scrollView: {
     flex: 1,
     padding: 20,
@@ -676,7 +1065,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#6366f1',
   },
   loadingContainer: {
     alignItems: 'center',
@@ -744,7 +1133,7 @@ const styles = StyleSheet.create({
   modernDropdownButton: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
+    padding:  16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -764,14 +1153,14 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     backgroundColor: '#eef2ff',
-    alignItems: 'center',
+    alignItems:  'center',
     justifyContent: 'center',
   },
-  dropdownTextContainer: {
+  dropdownTextContainer:  {
     flex: 1,
   },
   dropdownLabel: {
-    fontSize:  12,
+    fontSize: 12,
     color: '#6c757d',
     fontWeight:  '600',
     marginBottom: 4,
@@ -790,8 +1179,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   modernSearchButton: {
-    backgroundColor: '#6366f1',
-    borderRadius: 16,
+    backgroundColor:  '#6366f1',
+    borderRadius:  16,
     paddingVertical: 16,
     paddingHorizontal: 24,
     flexDirection: 'row',
@@ -815,7 +1204,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   retryButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor:  '#6c757d',
     borderRadius:  16,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -876,7 +1265,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   profileRegContainer: {
-    flexDirection:  'row',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
@@ -889,14 +1278,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#eef2ff',
-    padding: 16,
+    padding:  16,
     borderRadius: 12,
     marginBottom: 20,
     gap: 12,
   },
   messageText: {
     flex: 1,
-    fontSize:  14,
+    fontSize: 14,
     color: '#4f46e5',
     fontWeight: '500',
     lineHeight: 20,
@@ -916,10 +1305,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  // Modal styles
   modalContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent:  'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
@@ -927,10 +1315,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding:  20,
-    maxHeight:  '85%',
+    maxHeight: '85%',
   },
   modalHeader: {
-    flexDirection: 'row',
+    flexDirection:  'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
@@ -943,13 +1331,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: '#6366f1',
   },
   closeButton: {
     padding: 8,
   },
   searchContainer: {
-    marginBottom: 16,
+    marginBottom:  16,
   },
   searchInputWrapper: {
     flexDirection:  'row',
@@ -987,17 +1375,17 @@ const styles = StyleSheet.create({
     padding: 48,
   },
   studentsList: {
-    maxHeight:  450,
+    maxHeight: 450,
   },
   studentItem: {
-    flexDirection:  'row',
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems:  'center',
     paddingVertical: 16,
     paddingHorizontal: 12,
     borderRadius: 12,
     marginBottom: 8,
     backgroundColor: '#f9fafb',
-    gap: 12,
+    gap:  12,
   },
   studentAvatarContainer: {
     marginRight: 4,
@@ -1047,7 +1435,7 @@ const styles = StyleSheet.create({
   },
   emptySubText: {
     fontSize: 14,
-    color: '#9ca3af',
+    color:  '#9ca3af',
     textAlign: 'center',
     marginTop: 8,
   },

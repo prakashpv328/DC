@@ -14,6 +14,7 @@ router.get("/faculty/complaints/:complaint_id",userAuth,faculty.getComplaintById
 router.put("/faculty/updatecomplaint/:complaintId",userAuth, faculty.updateComplaint);
 router.get("/faculty/get_schedule_meetings/:faculty_id",userAuth, faculty.get_schedule_meetings);
 router.post("/faculty/resolve_complaint/:complaint_id",userAuth, faculty.resolve_complaint);
+router.get("/faculty/profile/:faculty_id",userAuth, faculty.profile);
 
 // router.post("/faculty/post_complaint/:faculty_id",upload.single('id_card'),faculty.post_complaint);
 // router.patch("/faculty/update_revoke_status/:complaint_id/:status",faculty.update_revoke_status);

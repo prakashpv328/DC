@@ -63,12 +63,13 @@ const FacultyDashboard = () => {
 
       const res = await axios.get(`${API_URL}/api/faculty/get_complaints/${Number(storedId)}`);
       if (res.data.success) {
-        const sixHoursInMs = 6 * 60 * 60 * 1000;
+        const twelveHoursInMs = 12 * 60 * 60 * 1000;
         const data = res.data.data. map((c) => {
           const complaintTime = new Date(c. date_time).getTime();
           const elapsedMs = Date.now() - complaintTime;
-          const remainingMs = sixHoursInMs - elapsedMs;
+          const remainingMs = twelveHoursInMs - elapsedMs;
           const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+          console.log('Complaint:', c);
           return {
             id: c.complaint_id,
             date:  c.complaint_date,
@@ -77,6 +78,7 @@ const FacultyDashboard = () => {
             venue: c.venue,
             status: c.status?. toLowerCase(),
             details: c.complaint,
+            revoke_message: c.revoke_message,
             student_name: c. student_name,
             student_reg_num: c.student_reg_num,
             student_emailid: c.student_emailid,
@@ -260,6 +262,7 @@ const filteredComplaints = complaints
   });
 
   const renderComplaintCard = (complaint) => {
+    console.log('Rendering complaint:', complaint);
     // Don't render if not visible
     if (!complaint.isVisible) {
       return null;
@@ -332,6 +335,7 @@ const filteredComplaints = complaints
             </Text>
           </View>
 
+
           <View style={styles.complaintRow}>
             <Text style={styles.label}>Complaint Date:</Text>
             <Text style={styles.valueText}>
@@ -341,6 +345,13 @@ const filteredComplaints = complaints
               {highlightText(timeFormatted, searchText)}
             </Text>
           </View>
+
+           {complaint.status === "rejected" && <View style={styles.complaintRow}>
+            <Text style={[styles.label,{color:"#e63946"}]}>Revoke Reason:</Text>
+            <Text style={styles.valueText}>
+              {highlightText(complaint.revoke_message, searchText)}
+            </Text>
+          </View>}
 
           <View style={styles.buttonContainer}>
             {complaint.status === 'pending' ?  (

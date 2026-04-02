@@ -2,31 +2,6 @@ const db = require("../config/db");
 const createError = require("http-errors");
 const { meeting_id } = require("../utils/id_generation");
 
-exports.getStudents = (req, res, next) => {
-  try {
-    const sql = `SELECT name, reg_num FROM users WHERE role_id = 1 ORDER BY name ASC`;
-
-    db.query(sql, (err, results) => {
-      if (err) return next(err);
-
-      if (results.length === 0) {
-        return res.status(200).json({
-          success: true,
-          message: "No users found with role_id = 1",
-          data: [],
-        });
-      }
-
-      res.status(200).json({
-        success: true,
-        data: results,
-      });
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 exports.getAllStudentsCounts = async (req, res, next) => {
   try {
     const countSql = `
@@ -57,29 +32,61 @@ exports.getAllStudentsCounts = async (req, res, next) => {
   }
 };
 
-exports.getStudentProfile = async (req, res, next) => {
+exports.getStudents = (req, res, next) => {
   try {
-    const { student_name, student_reg_num } = req.params;
+    // ✅ Include user_id in the SELECT query
+    const sql = `SELECT user_id, name, reg_num FROM users WHERE role_id = 1 ORDER BY name ASC`;
 
-    if (!student_name || !student_reg_num) {
-      return next(createError.BadRequest("Student name and reg_num are required"));
-    }
-
-    // Step 1: find the user_id based on name & reg_num
-    const findUserSql = `SELECT user_id FROM users WHERE name = ? AND reg_num = ? LIMIT 1`;
-
-    db.query(findUserSql, [student_name, student_reg_num], (err, userResult) => {
+    db.query(sql, (err, results) => {
       if (err) return next(err);
-      if (userResult.length === 0) {
-        return res.json({
-          success: false,
-          message: "No student found with provided name and reg_num"
+
+      if (results.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: "No users found with role_id = 1",
+          data: [],
         });
       }
 
-      const student_id = userResult[0].user_id;
+      res.status(200).json({
+        success: true,
+        data: results, // ✅ Now includes user_id, name, reg_num
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
-      // Step 2: fetch the counts from faculty_logger
+exports.getStudentProfile = async (req, res, next) => {
+  try {
+    const { student_id } = req.params;
+
+    if (!student_id) {
+      return next(createError. BadRequest("Student ID is required"));
+    }
+
+    const studentIdNum = Number(student_id);
+    if (isNaN(studentIdNum)) {
+      return next(createError.BadRequest("Invalid Student ID"));
+    }
+
+    // ✅ Verify the user exists and has role_id = 1
+    const userCheckSql = `SELECT user_id, name, reg_num FROM users WHERE user_id = ? AND role_id = 1 LIMIT 1`;
+    
+    db.query(userCheckSql, [studentIdNum], (err, userResult) => {
+      if (err) return next(err);
+      
+      if (userResult. length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Student not found or invalid student ID"
+        });
+      }
+
+      const student = userResult[0];
+
+      // ✅ Fetch the counts from faculty_logger
       const countSql = `
         SELECT 
           SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted_count,
@@ -87,9 +94,9 @@ exports.getStudentProfile = async (req, res, next) => {
           SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved_count,
           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count
         FROM faculty_logger 
-        WHERE student_id = ?`;
+        WHERE student_id = ? `;
 
-      db.query(countSql, [student_id], (err2, countResult) => {
+      db.query(countSql, [studentIdNum], (err2, countResult) => {
         if (err2) return next(err2);
 
         const accepted = countResult[0].accepted_count || 0;
@@ -103,11 +110,13 @@ exports.getStudentProfile = async (req, res, next) => {
           return res.json({
             success: true,
             type: 'specific_student',
-            student_id: student_id,
+            student_id: studentIdNum,
+            student_name: student.name,
+            student_reg_num: student.reg_num,
             message: 'No records found for this student',
             counts: {
               accepted_count: 0,
-              rejected_count: 0,
+              rejected_count:  0,
               resolved_count: 0,
               pending_count: 0
             }
@@ -117,14 +126,292 @@ exports.getStudentProfile = async (req, res, next) => {
         res.json({
           success: true,
           type: 'specific_student',
-          student_id: student_id,
+          student_id: studentIdNum,
+          student_name: student.name,
+          student_reg_num: student.reg_num,
           counts: {
-            accepted_count: accepted,
-            rejected_count: rejected,
-            resolved_count: resolved,
-            pending_count: pending
+            accepted_count:  accepted,
+            rejected_count:  rejected,
+            resolved_count:  resolved,
+            pending_count:  pending
           }
         });
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getStudentComplaintHistory = async (req, res, next) => {
+  try {
+    const { student_id } = req.params;
+
+    if (!student_id) {
+      return next(createError. BadRequest("Student ID is required"));
+    }
+
+    const studentIdNum = Number(student_id);
+    if (isNaN(studentIdNum)) {
+      return next(createError.BadRequest("Invalid Student ID"));
+    }
+
+    // ✅ Using your existing query structure
+    const sql = `
+      SELECT 
+        fl.student_id,
+        fl.complaint_id,
+        fl.faculty_id,
+        fl.date_time,
+        fl.venue,
+        fl. complaint,
+        fl.status,
+        fl.revoke_message,
+        fl. meeting_alloted,
+        
+        -- student info
+        s. name AS student_name,
+        s.reg_num AS student_reg_num,
+        s. emailId AS student_email,
+        s.department AS student_department,
+        s.year AS student_year,
+        
+        -- faculty info
+        f.name AS faculty_name,
+        f. emailId AS faculty_email,
+        f.department AS faculty_department
+
+      FROM faculty_logger fl
+      -- join users table for student info
+      LEFT JOIN users s ON s.user_id = fl.student_id
+      -- join users table for faculty info
+      LEFT JOIN users f ON f.user_id = fl.faculty_id
+      
+      -- ✅ Filter by specific student
+      WHERE fl.student_id = ? 
+      
+      ORDER BY fl.date_time DESC
+    `;
+
+    db.query(sql, [studentIdNum], (err, result) => {
+      if (err) return next(err);
+
+      if (!result || result.length === 0) {
+        return res.json({
+          success: true,
+          message: "No complaints found for this student",
+          student_info: {
+            user_id: studentIdNum
+          },
+          complaints: []
+        });
+      }
+
+      // Extract student info from first record
+      const studentInfo = {
+        user_id: result[0].student_id,
+        name: result[0].student_name,
+        reg_num: result[0].student_reg_num,
+        email: result[0].student_email,
+        department: result[0].student_department,
+        year: result[0].student_year
+      };
+
+      return res.json({ 
+        success: true, 
+        student_info: studentInfo,
+        complaints: result 
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getfaculty = (req, res, next) => {
+  try {
+    const sql = `SELECT user_id, name FROM users WHERE role_id = 2 ORDER BY name ASC`;
+
+    db.query(sql, (err, results) => {
+      if (err) return next(err);
+
+      if (results.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: "No users found with role_id = 2",
+          data: [],
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: results,
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getFacultyProfile = async (req, res, next) => {
+  try {
+    const { faculty_id } = req.params;
+
+    if (!faculty_id) {
+      return next(createError. BadRequest("Faculty ID is required"));
+    }
+
+    const facultyIdNum = Number(faculty_id);
+    if (isNaN(facultyIdNum)) {
+      return next(createError.BadRequest("Invalid Faculty ID"));
+    }
+
+    // ✅ FIX 1: Remove space in "user_id " (you had extra space)
+    const findUserSql = `SELECT user_id, name FROM users WHERE user_id = ?  AND role_id = 2 LIMIT 1`;
+
+    db.query(findUserSql, [facultyIdNum], (err, userResult) => {
+      if (err) return next(err);
+      
+      if (userResult.length === 0) {
+        return res.status(404).json({ // ✅ FIX 2: Use 404 instead of 200
+          success: false,
+          message: "No faculty found with provided ID"
+        });
+      }
+
+      const faculty = userResult[0];
+
+      const countSql = `
+        SELECT 
+          SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted_count,
+          SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected_count,
+          SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved_count,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count
+        FROM faculty_logger 
+        WHERE faculty_id = ? `;
+
+      db.query(countSql, [facultyIdNum], (err2, countResult) => {
+        if (err2) return next(err2);
+
+        const accepted = countResult[0].accepted_count || 0;
+        const rejected = countResult[0].rejected_count || 0;
+        const resolved = countResult[0].resolved_count || 0;
+        const pending = countResult[0].pending_count || 0;
+
+        const totalRecords = accepted + rejected + resolved + pending;
+
+        if (totalRecords === 0) {
+          return res.json({
+            success: true,
+            type: 'specific_faculty', // ✅ FIX 3: Change from 'specific_student'
+            faculty_id: facultyIdNum,
+            faculty_name: faculty.name,
+            message: 'No records found for this faculty',
+            counts: {
+              accepted_count: 0,
+              rejected_count:  0,
+              resolved_count: 0,
+              pending_count: 0
+            }
+          });
+        }
+
+        res.json({
+          success: true,
+          type: 'specific_faculty', // ✅ FIX 3: Change from 'specific_student'
+          faculty_id: facultyIdNum,
+          faculty_name: faculty.name,
+          counts: {
+            accepted_count:  accepted,
+            rejected_count:  rejected,
+            resolved_count:  resolved,
+            pending_count:  pending
+          }
+        });
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getFacultyComplaintHistory = async (req, res, next) => {
+  try {
+    const { faculty_id } = req.params;
+
+    if (!faculty_id) {
+      return next(createError.BadRequest("Faculty ID is required"));
+    }
+
+    const facultyIdNum = Number(faculty_id);
+    if (isNaN(facultyIdNum)) {
+      return next(createError.BadRequest("Invalid Faculty ID"));
+    }
+
+    // ✅ Using your existing query structure
+    const sql = `
+      SELECT 
+        fl.student_id,
+        fl.complaint_id,
+        fl.faculty_id,
+        fl.date_time,
+        fl.venue,
+        fl. complaint,
+        fl.status,
+     
+        fl.revoke_message,
+        fl.meeting_alloted,
+        
+        -- student info
+        s.name AS student_name,
+        s. reg_num AS student_reg_num,
+        s.emailId AS student_email,
+        s.department AS student_department,
+        s.year AS student_year,
+        
+        -- faculty info
+        f.name AS faculty_name,
+        f.emailId AS faculty_email,
+        f.department AS faculty_department
+
+      FROM faculty_logger fl
+      -- join users table for student info
+      LEFT JOIN users s ON s.user_id = fl.student_id
+      -- join users table for faculty info
+      LEFT JOIN users f ON f.user_id = fl. faculty_id
+      
+      -- ✅ Filter by specific faculty
+      WHERE fl.faculty_id = ?
+      
+      ORDER BY fl.date_time DESC
+    `;
+
+    db.query(sql, [facultyIdNum], (err, result) => {
+      if (err) return next(err);
+
+      if (!result || result.length === 0) {
+        return res.json({
+          success: true,
+          message: "No complaints found for this faculty",
+          faculty_info: {
+            user_id: facultyIdNum
+          },
+          complaints: []
+        });
+      }
+
+      // Extract faculty info from first record
+      const facultyInfo = {
+        user_id: result[0].faculty_id,
+        name: result[0].faculty_name,
+        email: result[0].faculty_email,
+        department: result[0].faculty_department
+      };
+
+      return res.json({ 
+        success: true, 
+        faculty_info: facultyInfo,
+        complaints: result 
       });
     });
   } catch (error) {
@@ -385,6 +672,11 @@ exports.post_acceptorresolve=(req,res,next)=>{
     next (error);
   }
 };
+
+
+
+
+
 
 
 

@@ -162,15 +162,7 @@ const FacultyMeetingDetails = () => {
             <Ionicons name="information-circle-outline" size={20} color="#7c2d12" />
             <Text style={[styles.sectionTitle, styles.guidelinesTitle]}>Faculty Guidelines</Text>
           </View>
-          
-          <Text style={styles.guidelinesText}>
-            • Please arrive 10 minutes before the scheduled meeting time.{'\n'}
-            • Review the original complaint details before the meeting.{'\n'}
-            • Prepare necessary documentation related to the complaint.{'\n'}
-            • Student attendance will be marked during the meeting.{'\n'}
-            • Ensure professional and constructive discussion with the student.{'\n'}
-            • Report any issues or concerns to the administrator after the meeting.
-          </Text>
+
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -320,12 +312,7 @@ const styles = StyleSheet.create({
   guidelinesTitle: {
     color: '#7c2d12',
   },
-  guidelinesText: {
-    fontSize: 14,
-    color: '#92400e',
-    lineHeight: 22,
-    fontStyle: 'italic',
-  },
+  
 });
 
 export default FacultyMeetingDetails;

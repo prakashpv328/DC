@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 
 // Student Pages
 import Login from '../../pages/LoginPage/Login.jsx'
@@ -29,6 +30,7 @@ import AdminScheduledMeetingForm from '../../pages/AdminPages/AdminSheduledMeeti
 import ComplaintDetails from '../../pages/AdminPages/ComplaintDetails.jsx';
 import RejectedComplaints from '../../pages/AdminPages/RejectedComplaints.jsx';
 import MeetingDetails from '../../pages/AdminPages/MeetingDetails.jsx';
+import UserComplaintHistory from '../../pages/AdminPages/UserComplainthistory.jsx';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -49,7 +51,7 @@ const SafeAreaWrapper = ({ children, routeName }) => {
   else if(routeName === 'AdminScheduledMeetingForm'){
     return children;
   }
-  else if(routeName === 'AdminDashboard'){
+  else if(routeName === 'UserComplaintHistory'){
     return children;
   }
   else if(routeName === 'MeetingDetails'){
@@ -63,10 +65,25 @@ const SafeAreaWrapper = ({ children, routeName }) => {
   }
 
 
-  // All other pages get SafeAreaView
+  // AdminDashboard gets gradient status bar
+  if (routeName === 'AdminDashboard') {
+    return (
+      <LinearGradient
+        colors={['#6366f1', '#dd7288ff']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ flex: 1 }}
+      >
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+        {children}
+      </LinearGradient>
+    );
+  }
+
+  // All other pages get SafeAreaView with default status bar
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffffff'}}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="dark-content" backgroundColor="#000000ff" />
       {children}
     </SafeAreaView>
   );
@@ -96,6 +113,8 @@ const Routes = () => {
             </SafeAreaWrapper>
           )}
         </Stack.Screen>
+
+        
         <Stack.Screen name="Dashboard">
           {(props) => (
             <SafeAreaWrapper routeName="Dashboard">
@@ -201,10 +220,27 @@ const Routes = () => {
             </SafeAreaWrapper>
           )}
         </Stack.Screen>
+
+        <Stack.Screen name="UserComplaintHistory">
+          {(props) => (
+            <SafeAreaWrapper routeName="UserComplaintHistory">
+              <UserComplaintHistory {...props} />
+            </SafeAreaWrapper>
+          )}
+        </Stack.Screen>
+
         <Stack.Screen name="AdminHistory">
           {(props) => (
             <SafeAreaWrapper routeName="AdminHistory">
               <AdminHistory {...props} />
+            </SafeAreaWrapper>
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen name="ComplaintDetails">
+          {(props) => (
+            <SafeAreaWrapper routeName="ComplaintDetails">
+              <ComplaintDetails {...props} />
             </SafeAreaWrapper>
           )}
         </Stack.Screen>
@@ -224,6 +260,7 @@ const Routes = () => {
             </SafeAreaWrapper>
           )}
         </Stack.Screen>
+
         <Stack.Screen name="AdminScheduledMeetings">
           {(props) => (
             <SafeAreaWrapper routeName="AdminScheduledMeetings">
@@ -231,6 +268,7 @@ const Routes = () => {
             </SafeAreaWrapper>
           )}
         </Stack.Screen>
+
         <Stack.Screen name="MeetingDetails">
           {(props) => (
             <SafeAreaWrapper routeName="MeetingDetails">
@@ -238,13 +276,7 @@ const Routes = () => {
             </SafeAreaWrapper>
           )}
         </Stack.Screen>
-         <Stack.Screen name="ComplaintDetails">
-          {(props) => (
-            <SafeAreaWrapper routeName="ComplaintDetails">
-              <ComplaintDetails {...props} />
-            </SafeAreaWrapper>
-          )}
-        </Stack.Screen>
+         
 
       </Stack.Navigator>
       

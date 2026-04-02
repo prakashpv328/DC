@@ -11,7 +11,8 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
   Platform,
-  StatusBar
+  StatusBar,
+  ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../utils/env';
@@ -370,7 +371,8 @@ const ComplaintForm = () => {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       style={styles.keyboardAvoid}
     >
       <StatusBar backgroundColor="#fff" barStyle="dark-content" />
@@ -397,18 +399,14 @@ const ComplaintForm = () => {
             </Text>
           </View>
 
-          <View style={styles.formContainer}>
-            {/* ✅ Scan ID Button */}
-            {!isEditMode && (
-              <TouchableOpacity
-                style={styles.scanButton}
-                onPress={() => setShowScanner(true)}
-                activeOpacity={0.7}
-              >
-                <Icon name="scan" size={24} color="#fff" />
-                <Text style={styles.scanButtonText}>Scan ID Card</Text>
-              </TouchableOpacity>
-            )}
+          <ScrollView 
+            style={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            scrollEnabled={true}
+          >
+            <View style={styles.formContainer}>
+            
 
             {/* Student Search */}
             <Text style={styles.inputLabel}>Student Information</Text>
@@ -469,6 +467,18 @@ const ComplaintForm = () => {
               {isEditMode ? 'Original Date & Time:  ' : 'Date & Time: '}{dateTime}
             </Text>
 
+            {/* ✅ Scan ID Button */}
+            {!isEditMode && (
+              <TouchableOpacity
+                style={styles.scanButton}
+                onPress={() => setShowScanner(true)}
+                activeOpacity={0.7}
+              >
+                <Icon name="scan" size={24} color="#fff" />
+                <Text style={styles.scanButtonText}>Scan ID Card</Text>
+              </TouchableOpacity>
+            )}
+
             {/* Submit Button */}
             <TouchableOpacity 
               style={[styles.button, loading && styles.buttonDisabled]} 
@@ -484,6 +494,8 @@ const ComplaintForm = () => {
               </Text>
             </TouchableOpacity>
           </View>
+            
+          </ScrollView>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -499,8 +511,9 @@ const styles = StyleSheet. create({
   container:  { 
     flex: 1,
     backgroundColor: '#fff',
-  },
-  header:  {
+  },  scrollContainer: {
+    flex: 1,
+  },  header:  {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -525,8 +538,8 @@ const styles = StyleSheet. create({
     marginLeft: 12,
   },
   formContainer: {
-    flex: 1,
     padding: 20,
+    paddingBottom: 30,
   },
   scanButton: {
     flexDirection: 'row',

@@ -8,9 +8,10 @@ const authRoute = require("./routes/authRoutes");
 const studentRoute = require("./routes/studentRoutes");
 const facultyRoute = require("./routes/facultyRoute");
 const adminRoute = require("./routes/adminRoute")
+const cookieParser = require("cookie-parser");
 const app = express();
 const PORT = process.env.PORT || 3000;
-
+app.use(cookieParser()); 
 app.use(cors());
 app.use(morgan('dev'));
 app.use(bodyParser.json());

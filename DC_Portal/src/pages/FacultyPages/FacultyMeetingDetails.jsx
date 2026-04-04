@@ -156,14 +156,14 @@ const FacultyMeetingDetails = () => {
           <DetailRow label="Meeting Allotted" value={meeting.meeting_alloted === 'yes' ? 'Yes' : 'No'} isLast={true} />
         </View>
 
-        {/* Faculty Guidelines */}
+        {/* Faculty Guidelines
         <View style={[styles.sectionCard, styles.guidelinesCard]}>
           <View style={styles.sectionHeader}>
             <Ionicons name="information-circle-outline" size={20} color="#7c2d12" />
             <Text style={[styles.sectionTitle, styles.guidelinesTitle]}>Faculty Guidelines</Text>
           </View>
 
-        </View>
+        </View> */}
       </ScrollView>
     </SafeAreaView>
   );

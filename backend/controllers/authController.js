@@ -104,58 +104,67 @@ exports.googleSignIn = async (req, res) => {
     }
 
     // Check if user exists in database
-    const [existingUsers] = await db.promise().query(
-      'SELECT * FROM users WHERE emailId = ?',
-      [email]
-    );
-
-    if (existingUsers.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Account not registered. Please contact admin to get access.'
-      });
-    }
-
-    const user = existingUsers[0];
-    
-
-    // Optional: Update google_id if not set
-    if (!user.google_id) {
-      try {
-        await db.promise().query(
-          'UPDATE users SET google_id = ? WHERE user_id = ?',
-          [googleId, user.user_id]
-        );
-       
-      } catch (err) {
-        console.warn('Could not update google_id:', err.message);
+    db.query('SELECT * FROM users WHERE emailId = ?', [email], (err, result) => {
+      if (err) {
+        console.error('Database query error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Database error during user lookup'
+        });
       }
-    }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user.user_id },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+      if (result.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account not registered. Please contact admin to get access.'
+        });
+      }
 
-    // Prepare response object
-    const response = {
-      success: true,
-      message:  'Google sign-in successful',
-      token:  token,
-      user_id: user.user_id,
-      user_name: user.name,
-      email_id: user. emailId,
-      role_id: user.role_id
-    };
+      const user = result[0];
 
-    // Add year if role_id = 1
-    if (user.role_id === 1 && user.year) {
-      response.year = user.year;
-    }
+      // Optional: Update google_id if not set
+      if (!user.google_id) {
+        db.query(
+          'UPDATE users SET google_id = ? WHERE user_id = ?',
+          [googleId, user.user_id],
+          (updateErr) => {
+            if (updateErr) {
+              console.warn('Could not update google_id:', updateErr.message);
+            }
+            sendLoginResponse();
+          }
+        );
+      } else {
+        sendLoginResponse();
+      }
 
-    res.status(200).json(response);
+      function sendLoginResponse() {
+        // Generate JWT token
+        const token = jwt.sign(
+          { id: user.user_id },
+          process.env.JWT_SECRET,
+          { expiresIn: '1h' }
+        );
+
+        // Prepare response object
+        const responseData = {
+          success: true,
+          message: 'Google sign-in successful',
+          token: token,
+          user_id: user.user_id,
+          user_name: user.name,
+          email_id: user.emailId,
+          role_id: user.role_id
+        };
+
+        // Add year if role_id = 1
+        if (user.role_id === 1 && user.year) {
+          responseData.year = user.year;
+        }
+
+        res.status(200).json(responseData);
+      }
+    });
 
   } catch (error) {
     console.error('Google sign-in error:', error);

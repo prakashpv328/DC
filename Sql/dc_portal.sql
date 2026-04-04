@@ -34,8 +34,8 @@ CREATE TABLE `faculty_logger`  (
   PRIMARY KEY (`complaint_id`) USING BTREE,
   INDEX `student_id`(`student_id` ASC) USING BTREE,
   INDEX `faculty_id`(`faculty_id` ASC) USING BTREE,
-  CONSTRAINT `faculty_logger_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `faculty_logger_ibfk_2` FOREIGN KEY (`faculty_id`) REFERENCES `users` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `faculty_logger_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `faculty_logger_ibfk_2` FOREIGN KEY (`faculty_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -57,10 +57,10 @@ CREATE TABLE `meetings`  (
   INDEX `admin_id`(`admin_id` ASC) USING BTREE,
   INDEX `faculty_id`(`faculty_id` ASC) USING BTREE,
   INDEX `student_id`(`student_id` ASC) USING BTREE,
-  CONSTRAINT `meetings_ibfk_1` FOREIGN KEY (`complaint_id`) REFERENCES `faculty_logger` (`complaint_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `meetings_ibfk_2` FOREIGN KEY (`admin_id`) REFERENCES `users` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `meetings_ibfk_3` FOREIGN KEY (`faculty_id`) REFERENCES `users` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `meetings_ibfk_4` FOREIGN KEY (`student_id`) REFERENCES `users` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `meetings_ibfk_1` FOREIGN KEY (`complaint_id`) REFERENCES `faculty_logger` (`complaint_id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `meetings_ibfk_2` FOREIGN KEY (`admin_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `meetings_ibfk_3` FOREIGN KEY (`faculty_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `meetings_ibfk_4` FOREIGN KEY (`student_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -92,7 +92,7 @@ CREATE TABLE `users`  (
   UNIQUE INDEX `emailId`(`emailId` ASC) USING BTREE,
   UNIQUE INDEX `google_id`(`google_id` ASC) USING BTREE,
   INDEX `idx_users_role_id`(`role_id` ASC) USING BTREE,
-  CONSTRAINT `fk_users_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`role_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  CONSTRAINT `fk_users_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`role_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB AUTO_INCREMENT = 18 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;

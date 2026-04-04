@@ -192,12 +192,13 @@ const Login = ({ navigation }) => {
         throw new Error('No ID token received from Google');
       }
 
-      const response = await axios. post(
+      const response = await axios.post(
         `${API_URL}/api/auth/google`,
         { idToken },
         {
           headers: { 'Content-Type': 'application/json' },
           timeout: 10000,
+          withCredentials: true,
         }
       );
 

@@ -4,6 +4,8 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   StatusBar,
   Alert,
@@ -20,8 +22,6 @@ import { useNavigation } from "@react-navigation/native";
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import moment from 'moment';
 const Dashboard = () => {
-  const navigation = useNavigation()
-  const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -439,7 +439,11 @@ const Dashboard = () => {
     : sortComplaintsByStatus(complaints. filter(complaint => complaint.isVisible));
 
   return (
-    <View style={styles.container} edges={['right', 'bottom', 'left']}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       <View style={styles.welcomeContainer}>
@@ -579,7 +583,7 @@ const Dashboard = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

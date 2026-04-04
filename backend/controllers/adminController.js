@@ -1,6 +1,119 @@
 const db = require("../config/db");
 const createError = require("http-errors");
 const { meeting_id } = require("../utils/id_generation");
+const XLSX = require("xlsx");
+
+const ALLOWED_COMPLAINT_STATUSES = ["accepted", "rejected", "resolved", "pending", "all"];
+const ALLOWED_MEETING_ALLOTED = ["yes", "no", "all"];
+
+const getNormalizedStatusFilter = (rawStatus) => {
+  const status = (rawStatus || "all").toString().trim().toLowerCase();
+  if (!ALLOWED_COMPLAINT_STATUSES.includes(status)) {
+    return null;
+  }
+  return status;
+};
+
+const getNormalizedMeetingAllotedFilter = (rawValue) => {
+  const value = (rawValue || "all").toString().trim().toLowerCase();
+  if (!ALLOWED_MEETING_ALLOTED.includes(value)) {
+    return null;
+  }
+  return value;
+};
+
+const addExportFilters = ({ reqQuery, conditions, values, columns }) => {
+  const {
+    statusColumn,
+    studentIdColumn,
+    studentNameColumn,
+    facultyIdColumn,
+    facultyNameColumn,
+    meetingAllotedColumn,
+    dateTimeColumn,
+  } = columns;
+
+  if (reqQuery.status) {
+    const statusFilter = getNormalizedStatusFilter(reqQuery.status);
+    if (!statusFilter) {
+      return "Invalid status filter";
+    }
+    if (statusFilter !== "all") {
+      conditions.push(`${statusColumn} = ?`);
+      values.push(statusFilter);
+    }
+  }
+
+  if (reqQuery.meeting_alloted) {
+    const meetingAllotedFilter = getNormalizedMeetingAllotedFilter(reqQuery.meeting_alloted);
+    if (!meetingAllotedFilter) {
+      return "Invalid meeting_alloted filter";
+    }
+    if (meetingAllotedFilter !== "all") {
+      conditions.push(`${meetingAllotedColumn} = ?`);
+      values.push(meetingAllotedFilter);
+    }
+  }
+
+  if (reqQuery.student_id) {
+    conditions.push(`${studentIdColumn} = ?`);
+    values.push(reqQuery.student_id);
+  }
+
+  if (reqQuery.student_name) {
+    conditions.push(`${studentNameColumn} LIKE ?`);
+    values.push(`%${reqQuery.student_name.trim()}%`);
+  }
+
+  if (reqQuery.faculty_id) {
+    conditions.push(`${facultyIdColumn} = ?`);
+    values.push(reqQuery.faculty_id);
+  }
+
+  if (reqQuery.faculty_name) {
+    conditions.push(`${facultyNameColumn} LIKE ?`);
+    values.push(`%${reqQuery.faculty_name.trim()}%`);
+  }
+
+  const fromDateTime = reqQuery.from_date_time || reqQuery.from;
+  const toDateTime = reqQuery.to_date_time || reqQuery.to;
+  const fromDate = reqQuery.from_date;
+  const toDate = reqQuery.to_date;
+  const fromTime = reqQuery.from_time;
+  const toTime = reqQuery.to_time;
+
+  if (fromDateTime) {
+    conditions.push(`${dateTimeColumn} >= ?`);
+    values.push(fromDateTime);
+  }
+
+  if (toDateTime) {
+    conditions.push(`${dateTimeColumn} <= ?`);
+    values.push(toDateTime);
+  }
+
+  if (fromDate) {
+    conditions.push(`DATE(${dateTimeColumn}) >= ?`);
+    values.push(fromDate);
+  }
+
+  if (toDate) {
+    conditions.push(`DATE(${dateTimeColumn}) <= ?`);
+    values.push(toDate);
+  }
+
+  if (fromTime) {
+    conditions.push(`TIME(${dateTimeColumn}) >= ?`);
+    values.push(fromTime);
+  }
+
+  if (toTime) {
+    conditions.push(`TIME(${dateTimeColumn}) <= ?`);
+    values.push(toTime);
+  }
+
+  return null;
+};
 
 exports.getAllStudentsCounts = async (req, res, next) => {
   try {
@@ -466,6 +579,254 @@ ORDER BY fl.date_time DESC;
 
       return res.json({ success: true, data: result });
       
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.download_complaints_excel = (req, res, next) => {
+  try {
+    let sql = `SELECT 
+    fl.student_id,
+    fl.complaint_id,
+    fl.faculty_id,
+    DATE_FORMAT(fl.date_time, '%Y-%m-%d %H:%i:%s') AS date_time,
+    fl.venue,
+    fl.complaint,
+    fl.status,
+    fl.revoke_message,
+    fl.meeting_alloted,
+    
+    -- student info
+    s.name AS student_name,
+    s.reg_num AS student_reg_num,
+    s.emailId AS student_email,
+    s.department AS student_department,
+    s.year AS student_year,
+    
+    -- faculty info
+    f.name AS faculty_name,
+    f.emailId AS faculty_email,
+    f.department AS faculty_department
+
+FROM faculty_logger fl
+LEFT JOIN users s ON s.user_id = fl.student_id
+LEFT JOIN users f ON f.user_id = fl.faculty_id
+`;
+
+    const conditions = [];
+    const values = [];
+    const filterError = addExportFilters({
+      reqQuery: req.query,
+      conditions,
+      values,
+      columns: {
+        statusColumn: "fl.status",
+        studentIdColumn: "fl.student_id",
+        studentNameColumn: "s.name",
+        facultyIdColumn: "fl.faculty_id",
+        facultyNameColumn: "f.name",
+        meetingAllotedColumn: "fl.meeting_alloted",
+        dateTimeColumn: "fl.date_time",
+      },
+    });
+
+    if (filterError) {
+      return next(createError.BadRequest(filterError));
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    sql += " ORDER BY fl.date_time DESC;";
+
+    db.query(sql, values, (err, result) => {
+      if (err) return next(err);
+
+      const rows = (result || []).map((item) => ({
+        Complaint_ID: item.complaint_id,
+        Student_ID: item.student_id,
+        Student_Name: item.student_name,
+        Student_Reg_No: item.student_reg_num,
+        Student_Email: item.student_email,
+        Student_Department: item.student_department,
+        Student_Year: item.student_year,
+        Faculty_ID: item.faculty_id,
+        Faculty_Name: item.faculty_name,
+        Faculty_Email: item.faculty_email,
+        Faculty_Department: item.faculty_department,
+        Date_Time: item.date_time,
+        Venue: item.venue,
+        Complaint: item.complaint,
+        Status: item.status,
+        Meeting_Alloted: item.meeting_alloted,
+        Revoke_Message: item.revoke_message,
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+
+      if (rows.length > 0) {
+        worksheet['!cols'] = [
+          { wch: 16 },
+          { wch: 12 },
+          { wch: 24 },
+          { wch: 18 },
+          { wch: 28 },
+          { wch: 22 },
+          { wch: 14 },
+          { wch: 12 },
+          { wch: 24 },
+          { wch: 28 },
+          { wch: 22 },
+          { wch: 20 },
+          { wch: 18 },
+          { wch: 40 },
+          { wch: 14 },
+          { wch: 16 },
+          { wch: 30 },
+        ];
+      }
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Complaints');
+
+      const workbookBase64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+
+      return res.json({
+        success: true,
+        fileName: `dc_portal_complaints_${Date.now()}.xlsx`,
+        fileBase64: workbookBase64,
+        message: rows.length === 0 ? 'No complaints found to export' : 'Excel file generated successfully',
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.download_meetings_excel = (req, res, next) => {
+  try {
+    let sql = `
+      SELECT
+        m.meeting_id,
+        m.complaint_id,
+        m.admin_id,
+        m.venue AS meeting_venue,
+        DATE_FORMAT(m.date_time, '%Y-%m-%d %H:%i:%s') AS meeting_date_time,
+        m.info,
+        m.attendance,
+        fl.status AS complaint_status,
+        fl.meeting_alloted,
+        fl.revoke_message,
+        s.user_id AS student_id,
+        s.name AS student_name,
+        s.reg_num AS student_reg_num,
+        s.emailId AS student_email,
+        s.department AS student_department,
+        s.year AS student_year,
+        f.user_id AS faculty_id,
+        f.name AS faculty_name,
+        f.emailId AS faculty_email,
+        f.department AS faculty_department
+      FROM meetings m
+      JOIN faculty_logger fl ON fl.complaint_id = m.complaint_id
+      JOIN users s ON s.user_id = fl.student_id
+      JOIN users f ON f.user_id = fl.faculty_id
+    `;
+
+    const conditions = [];
+    const values = [];
+    const filterError = addExportFilters({
+      reqQuery: req.query,
+      conditions,
+      values,
+      columns: {
+        statusColumn: "fl.status",
+        studentIdColumn: "s.user_id",
+        studentNameColumn: "s.name",
+        facultyIdColumn: "f.user_id",
+        facultyNameColumn: "f.name",
+        meetingAllotedColumn: "fl.meeting_alloted",
+        dateTimeColumn: "m.date_time",
+      },
+    });
+
+    if (filterError) {
+      return next(createError.BadRequest(filterError));
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    sql += " ORDER BY m.date_time DESC";
+
+    db.query(sql, values, (err, result) => {
+      if (err) return next(err);
+
+      const rows = (result || []).map((item) => ({
+        Meeting_ID: item.meeting_id,
+        Complaint_ID: item.complaint_id,
+        Admin_ID: item.admin_id,
+        Meeting_Date_Time: item.meeting_date_time,
+        Meeting_Venue: item.meeting_venue,
+        Meeting_Info: item.info,
+        Attendance: item.attendance,
+        Complaint_Status: item.complaint_status,
+        Meeting_Alloted: item.meeting_alloted,
+        Revoke_Message: item.revoke_message,
+        Student_ID: item.student_id,
+        Student_Name: item.student_name,
+        Student_Reg_No: item.student_reg_num,
+        Student_Email: item.student_email,
+        Student_Department: item.student_department,
+        Student_Year: item.student_year,
+        Faculty_ID: item.faculty_id,
+        Faculty_Name: item.faculty_name,
+        Faculty_Email: item.faculty_email,
+        Faculty_Department: item.faculty_department,
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+
+      if (rows.length > 0) {
+        worksheet['!cols'] = [
+          { wch: 18 },
+          { wch: 16 },
+          { wch: 12 },
+          { wch: 20 },
+          { wch: 20 },
+          { wch: 35 },
+          { wch: 12 },
+          { wch: 14 },
+          { wch: 16 },
+          { wch: 24 },
+          { wch: 12 },
+          { wch: 24 },
+          { wch: 18 },
+          { wch: 28 },
+          { wch: 22 },
+          { wch: 12 },
+          { wch: 12 },
+          { wch: 24 },
+          { wch: 28 },
+          { wch: 22 },
+        ];
+      }
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Meetings');
+
+      const workbookBase64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+
+      return res.json({
+        success: true,
+        fileName: `dc_portal_meetings_${Date.now()}.xlsx`,
+        fileBase64: workbookBase64,
+        message: rows.length === 0 ? 'No meetings found to export' : 'Excel file generated successfully',
+      });
     });
   } catch (error) {
     next(error);

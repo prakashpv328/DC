@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  FlatList,
   Dimensions,
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
@@ -250,25 +249,31 @@ const ComplaintForm = () => {
   // ✅ Render dropdown
   const renderDropdown = () => {
     if (!showDropdown) return null;
+    const limitedStudents = filteredStudents.slice(0, 10);
     
     return (
       <View style={styles.dropdownContainer}>
-        {filteredStudents.length > 0 ? (
-          <FlatList
-            data={filteredStudents. slice(0, 10)}
-            keyExtractor={(item, index) => `student_${index}`}
-            renderItem={({ item }) => (
+        {limitedStudents.length > 0 ? (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+          >
+            {limitedStudents.map((item, index) => (
               <TouchableOpacity
+                key={`student_${item.user_id || 'na'}_${item.reg_num || 'na'}_${item.name || 'na'}_${index}`}
                 style={styles.dropdownItem}
                 onPress={() => handleStudentSelect(item)}
               >
-                <Text style={styles.dropdownText}>{item.name}</Text>
-                <Text style={styles.dropdownSubText}>{item.reg_num}</Text>
+                <Text style={styles.dropdownText} numberOfLines={1} ellipsizeMode="tail">
+                  {item.name}
+                </Text>
+                <Text style={styles.dropdownSubText} numberOfLines={1} ellipsizeMode="tail">
+                  {item.reg_num}
+                </Text>
               </TouchableOpacity>
-            )}
-            keyboardShouldPersistTaps="always"
-            showsVerticalScrollIndicator={false}
-          />
+            ))}
+          </ScrollView>
         ) : (
           <Text style={styles.noResults}>No students found</Text>
         )}
@@ -613,6 +618,7 @@ const styles = StyleSheet. create({
     zIndex: 1000,
     elevation: 5,
     maxHeight: 200,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -626,11 +632,13 @@ const styles = StyleSheet. create({
   dropdownText: {
     fontSize: 15,
     color: '#111827',
+    flexShrink: 1,
   },
   dropdownSubText: {
     fontSize: 13,
     color: '#6b7280',
     marginTop:  2,
+    flexShrink: 1,
   },
   noResults: {
     padding: 12,

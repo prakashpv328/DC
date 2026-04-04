@@ -3,6 +3,9 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Alert,
   ActivityIndicator,
@@ -20,6 +23,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import Share from 'react-native-share';
+
+const FILTER_OPTIONS = [
+  { key: 'none', label: 'No Filter' },
+  { key: 'status', label: 'Status' },
+  { key: 'student_id', label: 'Student ID' },
+  { key: 'student_name', label: 'Student Name' },
+  { key: 'faculty_id', label: 'Faculty ID' },
+  { key: 'faculty_name', label: 'Faculty Name' },
+  { key: 'meeting_alloted', label: 'Meeting Alloted' },
+  { key: 'date_range', label: 'Date Range' },
+  { key: 'time_range', label: 'Time Range' },
+  { key: 'date_time_range', label: 'Date-Time Range' },
+];
+
+const DEFAULT_EXPORT_FILTER = {
+  type: 'none',
+  value: '',
+  from: '',
+  to: '',
+};
 
 const AdminDashboard = () => {
   const navigation = useNavigation();
@@ -59,6 +83,15 @@ const AdminDashboard = () => {
   // ✅ NEW:  Faculty search states
   const [facultySearchText, setFacultySearchText] = useState('');
   const [filteredFaculty, setFilteredFaculty] = useState([]);
+
+  const statusOptions = ['all', 'accepted', 'rejected', 'resolved', 'pending'];
+  const meetingAllotedOptions = ['all', 'yes', 'no'];
+  const [complaintExportFilter, setComplaintExportFilter] = useState(DEFAULT_EXPORT_FILTER);
+  const [meetingExportFilter, setMeetingExportFilter] = useState(DEFAULT_EXPORT_FILTER);
+  const [complaintsExportLoading, setComplaintsExportLoading] = useState(false);
+  const [meetingsExportLoading, setMeetingsExportLoading] = useState(false);
+  const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
+  const [filterDropdownTarget, setFilterDropdownTarget] = useState('complaints');
 
   // Animation value
   const [scaleAnim] = useState(new Animated.Value(1));
@@ -363,6 +396,221 @@ const AdminDashboard = () => {
     setFacultySearchText('');
   };
 
+  const getFilterTypeLabel = (type) => {
+    return FILTER_OPTIONS.find((item) => item.key === type)?.label || 'No Filter';
+  };
+
+  const openFilterTypeDropdown = (target) => {
+    setFilterDropdownTarget(target);
+    setFilterDropdownVisible(true);
+  };
+
+  const closeFilterTypeDropdown = () => {
+    setFilterDropdownVisible(false);
+  };
+
+  const selectFilterType = (optionKey) => {
+    const nextState = {
+      ...DEFAULT_EXPORT_FILTER,
+      type: optionKey,
+      value: optionKey === 'status' ? 'all' : optionKey === 'meeting_alloted' ? 'all' : '',
+    };
+
+    if (filterDropdownTarget === 'complaints') {
+      setComplaintExportFilter(nextState);
+    } else {
+      setMeetingExportFilter(nextState);
+    }
+
+    closeFilterTypeDropdown();
+  };
+
+  const getFilterQueryParams = (filter) => {
+    const params = new URLSearchParams();
+
+    switch (filter.type) {
+      case 'status':
+        if (filter.value) params.append('status', filter.value);
+        break;
+      case 'student_id':
+        if (filter.value.trim()) params.append('student_id', filter.value.trim());
+        break;
+      case 'student_name':
+        if (filter.value.trim()) params.append('student_name', filter.value.trim());
+        break;
+      case 'faculty_id':
+        if (filter.value.trim()) params.append('faculty_id', filter.value.trim());
+        break;
+      case 'faculty_name':
+        if (filter.value.trim()) params.append('faculty_name', filter.value.trim());
+        break;
+      case 'meeting_alloted':
+        if (filter.value) params.append('meeting_alloted', filter.value);
+        break;
+      case 'date_range':
+        if (filter.from.trim()) params.append('from_date', filter.from.trim());
+        if (filter.to.trim()) params.append('to_date', filter.to.trim());
+        break;
+      case 'time_range':
+        if (filter.from.trim()) params.append('from_time', filter.from.trim());
+        if (filter.to.trim()) params.append('to_time', filter.to.trim());
+        break;
+      case 'date_time_range':
+        if (filter.from.trim()) params.append('from_date_time', filter.from.trim());
+        if (filter.to.trim()) params.append('to_date_time', filter.to.trim());
+        break;
+      default:
+        break;
+    }
+
+    return params.toString();
+  };
+
+  const renderFilterSubOptions = (filter, setFilter) => {
+    if (filter.type === 'status') {
+      return (
+        <View style={styles.filterChipRow}>
+          {statusOptions.map((option) => (
+            <TouchableOpacity
+              key={`status-${option}`}
+              style={[styles.filterChip, filter.value === option && styles.filterChipActive]}
+              onPress={() => setFilter({ ...filter, value: option })}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.filterChipText, filter.value === option && styles.filterChipTextActive]}>
+                {option.charAt(0).toUpperCase() + option.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      );
+    }
+
+    if (filter.type === 'meeting_alloted') {
+      return (
+        <View style={styles.filterChipRow}>
+          {meetingAllotedOptions.map((option) => (
+            <TouchableOpacity
+              key={`meeting-alloted-${option}`}
+              style={[styles.filterChip, filter.value === option && styles.filterChipActive]}
+              onPress={() => setFilter({ ...filter, value: option })}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.filterChipText, filter.value === option && styles.filterChipTextActive]}>
+                {option.charAt(0).toUpperCase() + option.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      );
+    }
+
+    if (filter.type === 'student_id' || filter.type === 'student_name' || filter.type === 'faculty_id' || filter.type === 'faculty_name') {
+      return (
+        <TextInput
+          style={styles.exportFilterInput}
+          placeholder={`Enter ${FILTER_OPTIONS.find((opt) => opt.key === filter.type)?.label || 'value'}`}
+          placeholderTextColor="#9ca3af"
+          value={filter.value}
+          onChangeText={(text) => setFilter({ ...filter, value: text })}
+        />
+      );
+    }
+
+    if (filter.type === 'date_range' || filter.type === 'time_range' || filter.type === 'date_time_range') {
+      const fromPlaceholder = filter.type === 'date_range'
+        ? 'From (YYYY-MM-DD)'
+        : filter.type === 'time_range'
+          ? 'From (HH:mm:ss)'
+          : 'From (YYYY-MM-DD HH:mm:ss)';
+
+      const toPlaceholder = filter.type === 'date_range'
+        ? 'To (YYYY-MM-DD)'
+        : filter.type === 'time_range'
+          ? 'To (HH:mm:ss)'
+          : 'To (YYYY-MM-DD HH:mm:ss)';
+
+      return (
+        <View style={styles.exportRangeRow}>
+          <TextInput
+            style={[styles.exportFilterInput, styles.exportRangeInput]}
+            placeholder={fromPlaceholder}
+            placeholderTextColor="#9ca3af"
+            value={filter.from}
+            onChangeText={(text) => setFilter({ ...filter, from: text })}
+          />
+          <TextInput
+            style={[styles.exportFilterInput, styles.exportRangeInput]}
+            placeholder={toPlaceholder}
+            placeholderTextColor="#9ca3af"
+            value={filter.to}
+            onChangeText={(text) => setFilter({ ...filter, to: text })}
+          />
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  const exportExcelFile = async ({ endpoint, filter, fallbackName, setLoading }) => {
+    setLoading(true);
+    try {
+      const query = getFilterQueryParams(filter);
+      const requestUrl = `${API_URL}${endpoint}${query ? `?${query}` : ''}`;
+      const response = await fetch(requestUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data?.success || !data?.fileBase64) {
+        const backendMessage = data?.error?.message || data?.message;
+        throw new Error(backendMessage || 'Unable to generate the Excel file');
+      }
+
+      const fileName = data.fileName || `${fallbackName}_${Date.now()}.xlsx`;
+      try {
+        await Share.open({
+          url: `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${data.fileBase64}`,
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: fileName,
+          useInternalStorage: true,
+          failOnCancel: false,
+          title: 'Download Excel',
+        });
+      } catch (shareError) {
+        throw new Error(shareError?.message || 'File generated but failed to open share dialog');
+      }
+    } catch (error) {
+      console.error('Excel export failed:', error);
+      Alert.alert('Export Failed', error.message || 'Unable to download the Excel file.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadComplaintsExcel = async () => {
+    await exportExcelFile({
+      endpoint: '/api/admin/download_complaints_excel',
+      filter: complaintExportFilter,
+      fallbackName: 'dc_portal_complaints',
+      setLoading: setComplaintsExportLoading,
+    });
+  };
+
+  const handleDownloadMeetingsExcel = async () => {
+    await exportExcelFile({
+      endpoint: '/api/admin/download_meetings_excel',
+      filter: meetingExportFilter,
+      fallbackName: 'dc_portal_meetings',
+      setLoading: setMeetingsExportLoading,
+    });
+  };
+
   // ==================== SHARED FUNCTIONS ====================
 
   const calculateTotalComplaints = (counts) => {
@@ -557,7 +805,11 @@ const AdminDashboard = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
       {/* Modern Header with Gradient */}
       <LinearGradient
         colors={['#6366f1', '#dd7288ff']}
@@ -843,6 +1095,85 @@ const AdminDashboard = () => {
             </View>
           )}
         </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="download-outline" size={24} color="#6366f1" />
+              <Text style={styles.sectionTitle}>Export Data</Text>
+            </View>
+
+            <View style={styles.exportCard}>
+              <Text style={styles.exportCardTitle}>Complaints Excel</Text>
+              <Text style={styles.exportCardSubTitle}>Choose filter type, then select sub-options</Text>
+              <TouchableOpacity
+                style={styles.filterTypeDropdownButton}
+                onPress={() => openFilterTypeDropdown('complaints')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.filterTypeDropdownContent}>
+                  <Text style={styles.filterTypeDropdownLabel}>Filter Type</Text>
+                  <Text style={styles.filterTypeDropdownValue}>{getFilterTypeLabel(complaintExportFilter.type)}</Text>
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#6366f1" />
+              </TouchableOpacity>
+
+              <View style={styles.exportSubOptionsContainer}>
+                {renderFilterSubOptions(complaintExportFilter, setComplaintExportFilter)}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.exportActionButton, complaintsExportLoading && styles.disabledExportButton]}
+                onPress={handleDownloadComplaintsExcel}
+                activeOpacity={0.85}
+                disabled={complaintsExportLoading}
+              >
+                {complaintsExportLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="download-outline" size={18} color="#fff" />
+                    <Text style={styles.exportActionButtonText}>Download Complaints</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.exportCard}>
+              <Text style={styles.exportCardTitle}>Meetings Excel</Text>
+              <Text style={styles.exportCardSubTitle}>Choose filter type, then select sub-options</Text>
+              <TouchableOpacity
+                style={styles.filterTypeDropdownButton}
+                onPress={() => openFilterTypeDropdown('meetings')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.filterTypeDropdownContent}>
+                  <Text style={styles.filterTypeDropdownLabel}>Filter Type</Text>
+                  <Text style={styles.filterTypeDropdownValue}>{getFilterTypeLabel(meetingExportFilter.type)}</Text>
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#6366f1" />
+              </TouchableOpacity>
+
+              <View style={styles.exportSubOptionsContainer}>
+                {renderFilterSubOptions(meetingExportFilter, setMeetingExportFilter)}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.exportActionButton, meetingsExportLoading && styles.disabledExportButton]}
+                onPress={handleDownloadMeetingsExcel}
+                activeOpacity={0.85}
+                disabled={meetingsExportLoading}
+              >
+                {meetingsExportLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="calendar-outline" size={18} color="#fff" />
+                    <Text style={styles.exportActionButtonText}>Download Meetings</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
       </ScrollView>
 
       {/* ==================== STUDENT MODAL ==================== */}
@@ -1008,7 +1339,43 @@ const AdminDashboard = () => {
           </View>
         </View>
       </Modal>
-    </View>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={filterDropdownVisible}
+        onRequestClose={closeFilterTypeDropdown}
+      >
+        <Pressable
+          style={styles.filterTypeModalOverlay}
+          onPress={closeFilterTypeDropdown}
+        >
+          <Pressable style={styles.filterTypeModalCard} onPress={() => {}}>
+            <Text style={styles.filterTypeModalTitle}>Select Filter Type</Text>
+            {FILTER_OPTIONS.map((option) => {
+              const isSelected =
+                filterDropdownTarget === 'complaints'
+                  ? complaintExportFilter.type === option.key
+                  : meetingExportFilter.type === option.key;
+
+              return (
+                <TouchableOpacity
+                  key={`filter-option-${option.key}`}
+                  style={[styles.filterTypeModalItem, isSelected && styles.filterTypeModalItemSelected]}
+                  onPress={() => selectFilterType(option.key)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.filterTypeModalItemText, isSelected && styles.filterTypeModalItemTextSelected]}>
+                    {option.label}
+                  </Text>
+                  {isSelected && <Ionicons name="checkmark" size={18} color="#6366f1" />}
+                </TouchableOpacity>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -1020,12 +1387,156 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     paddingTop: 14,
+    paddingBottom: 18,
   },
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingBottom: 16,
+  },
+  exportCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  exportCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  exportCardSubTitle: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  filterTypeDropdownButton: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+  },
+  filterTypeDropdownContent: {
+    flex: 1,
+  },
+  filterTypeDropdownLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  filterTypeDropdownValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  filterTypeModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  filterTypeModalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+  },
+  filterTypeModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 10,
+  },
+  filterTypeModalItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  filterTypeModalItemSelected: {
+    backgroundColor: '#eef2ff',
+  },
+  filterTypeModalItemText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  filterTypeModalItemTextSelected: {
+    color: '#4338ca',
+    fontWeight: '700',
+  },
+  exportSubOptionsContainer: {
+    marginTop: 10,
+  },
+  filterChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#f9fafb',
+  },
+  filterChipActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: '#4b5563',
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#ffffff',
+  },
+  exportFilterInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+    backgroundColor: '#ffffff',
+  },
+  exportRangeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  exportRangeInput: {
+    flex: 1,
+  },
+  exportActionButton: {
+    marginTop: 12,
+    borderRadius: 10,
+    backgroundColor: '#6366f1',
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  exportActionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  disabledExportButton: {
+    opacity: 0.7,
   },
   profileImage: {
     width: 56,

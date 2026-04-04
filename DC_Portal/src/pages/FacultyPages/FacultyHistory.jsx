@@ -4,6 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   ActivityIndicator,
   Alert,
   RefreshControl,
@@ -11,11 +13,11 @@ import {
   TouchableOpacity,
   Modal,
 } from 'react-native';
-import { API_URL } from '../../utils/env';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import moment from 'moment';
+import { API_URL } from '@env';
 
 // Header Component
 const HistoryHeader = ({ onSearchToggle, searchVisible, onSortToggle }) => {
@@ -577,7 +579,11 @@ const FacultyHistory = () => {
   }
 
   return (
-    <View style={styles. container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
       <View style={styles.headerWrapper}>
         <HistoryHeader 
           onSearchToggle={toggleSearch}
@@ -646,7 +652,7 @@ const FacultyHistory = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

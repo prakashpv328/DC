@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   TextInput,
   Image,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import axios from "axios";
 import { API_URL } from '../../utils/env'
@@ -211,7 +213,7 @@ const FacultyDashboard = () => {
 
   
   // Filter complaints based on search text
-// ✅ UPDATED: Filter and sort complaints (Pending first)
+// Γ£à UPDATED: Filter and sort complaints (Pending first)
 const filteredComplaints = complaints
   .filter((c) => {
     if (!searchText) return true;
@@ -232,7 +234,7 @@ const filteredComplaints = complaints
       timeStr.includes(s)
     );
   })
-  // ✅ Sort:  Pending first, then others (accepted, rejected, resolved)
+  // Γ£à Sort:  Pending first, then others (accepted, rejected, resolved)
   .sort((a, b) => {
     // Define status priority:  pending = 0, others = 1
     const getPriority = (status) => {
@@ -447,6 +449,10 @@ const filteredComplaints = complaints
   });
 
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
     <View style={styles.container} edges={['right', 'bottom', 'left']}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
@@ -549,6 +555,7 @@ const filteredComplaints = complaints
         <Ionicons name="add" size={30} color="#fff" />
       </TouchableOpacity>
     </View>
+    </KeyboardAvoidingView>
   );
 };
 

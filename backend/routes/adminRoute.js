@@ -18,6 +18,8 @@ router.get("/admin/get_complaints",userAuth,admin.get_complaints);
 
 
 router.get("/admin/get_rejected_complaints",userAuth,admin.get_rejected_complaints);
+router.get("/admin/download_complaints_excel", userAuth, admin.download_complaints_excel);
+router.get("/admin/download_meetings_excel", userAuth, admin.download_meetings_excel);
 router.post("/admin/schedule_meetings/:complaint_id/:admin_id",userAuth,admin.schedule_meeting);
 
 

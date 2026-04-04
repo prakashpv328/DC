@@ -4,6 +4,8 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   StatusBar,
   Alert,
@@ -21,14 +23,12 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import moment from 'moment';
 
 const { width } = Dimensions.get('window');
-
-// ✅ NEW: Sort Options Component
 const SortOptions = ({ selectedSort, onSortChange }) => {
   const sortOptions = [
     { label: 'All', value: 'all', icon: 'list-outline', color: '#6366f1' },
-    { label: 'Scheduled', value:  'scheduled', icon: 'time-outline', color: '#ad954b' },
-    { label: 'Present', value: 'present', icon: 'checkmark-circle-outline', color:  '#22c55e' },
-    { label: 'Absent', value:  'absent', icon: 'close-circle-outline', color: '#ef4444' },
+    { label: 'Scheduled', value: 'scheduled', icon: 'time-outline', color: '#ad954b' },
+    { label: 'Present', value: 'present', icon: 'checkmark-circle-outline', color: '#22c55e' },
+    { label: 'Absent', value: 'absent', icon: 'close-circle-outline', color: '#ef4444' },
   ];
 
   return (
@@ -628,7 +628,11 @@ const FacultyScheduledMeetings = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {/* Header Component */}
@@ -707,7 +711,7 @@ const FacultyScheduledMeetings = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
